@@ -30,26 +30,22 @@ jobs:
       - name: Decompile APK
         run: apktool d via-release.apk -o via-decompiled --no-src -f
 
-      - name: Remove bloat
+      - name: Remove only safe bloat (assets only)
         run: |
           cd via-decompiled
+          # Só remover assets que não afetam drawables/resources
           rm -rf assets/adblock 2>/dev/null || true
-          rm -rf assets/ua 2>/dev/null || true
           rm -f assets/*.js 2>/dev/null || true
-          rm -f assets/*.html 2>/dev/null || true
-          rm -rf res/drawable-xxxhdpi 2>/dev/null || true
-          rm -rf res/drawable-xxhdpi 2>/dev/null || true
-          rm -rf res/layout-land 2>/dev/null || true
           du -sh .
 
       - name: Set Gemini as homepage
         run: |
-          find via-decompiled -name "*.xml" | xargs grep -l "about:home\|about:blank" 2>/dev/null | \
+          find via-decompiled -name "*.xml" | xargs grep -rl "about:home\|about:blank" 2>/dev/null | \
             xargs -I{} sed -i 's|about:home|https://gemini.google.com/app|g; s|about:blank|https://gemini.google.com/app|g' {} || true
 
       - name: Recompile APK
         run: |
-          apktool b via-decompiled -o via-slim.apk
+          apktool b via-decompiled -o via-slim.apk --use-aapt2
           ls -lh via-slim.apk
 
       - name: Sign APK
