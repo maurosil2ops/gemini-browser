@@ -1,10 +1,10 @@
-name: Build Gemini Browser APK
+name: Slim Via Browser APK
 
 on:
   workflow_dispatch:
 
 jobs:
-  build:
+  slim:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,38 +15,66 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Gradle
+      - name: Install apktool
         run: |
-          curl -sL https://services.gradle.org/distributions/gradle-8.4-bin.zip -o gradle.zip
-          unzip -q gradle.zip -d /opt/
-          export PATH="/opt/gradle-8.4/bin:$PATH"
-          echo "/opt/gradle-8.4/bin" >> $GITHUB_PATH
-          gradle --version
+          curl -sL https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar -o /usr/local/bin/apktool.jar
+          echo '#!/bin/sh\nexec java -jar /usr/local/bin/apktool.jar "$@"' > /usr/local/bin/apktool
+          chmod +x /usr/local/bin/apktool
+          apktool --version
 
-      - name: Build Release APK
+      - name: Download Via Browser APK
         run: |
-          gradle assembleRelease
-          find app/build/outputs/apk -name "*.apk" -ls
+          curl -sL "https://res.viayoo.com/v1/via-release.apk" -o via-release.apk
+          ls -lh via-release.apk
+
+      - name: Decompile APK
+        run: apktool d via-release.apk -o via-decompiled --no-src
+
+      - name: Remove bloat
+        run: |
+          cd via-decompiled
+
+          # Remover assets desnecessários
+          rm -rf assets/adblock 2>/dev/null || true
+          rm -rf assets/ua 2>/dev/null || true
+          rm -f assets/*.js 2>/dev/null || true
+          rm -f assets/*.html 2>/dev/null || true
+
+          # Remover drawables de alta resolução (manter só mdpi e hdpi)
+          rm -rf res/drawable-xxxhdpi 2>/dev/null || true
+          rm -rf res/drawable-xxhdpi 2>/dev/null || true
+
+          # Remover layouts alternativos desnecessários
+          rm -rf res/layout-land 2>/dev/null || true
+          rm -rf res/layout-sw600dp* 2>/dev/null || true
+
+          du -sh ../via-decompiled
+
+      - name: Set Gemini as homepage
+        run: |
+          # Substituir homepage padrão pelo Gemini
+          grep -rl "about:home\|about:blank\|https://start" via-decompiled/res/ | head -5
+          find via-decompiled -name "*.xml" -exec grep -l "about:home\|about:blank" {} \; | xargs -I{} sed -i 's|about:home|https://gemini.google.com/app|g; s|about:blank|https://gemini.google.com/app|g' {} 2>/dev/null || true
+          find via-decompiled -name "strings.xml" | xargs grep -l "home\|homepage\|start_url" 2>/dev/null | head -5 || true
+
+      - name: Recompile APK
+        run: |
+          apktool b via-decompiled -o via-slim.apk
+          ls -lh via-slim.apk
 
       - name: Sign APK
         run: |
-          keytool -genkey -v -keystore release-key.jks -keyalg RSA -keysize 2048 -validity 10000 \
-            -alias mykey -storepass password123 -keypass password123 \
-            -dname "CN=Gemini, OU=Browser, O=Custom, L=BR, S=BR, C=BR"
-          APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
-          echo "APK: $APK_PATH | Tamanho: $(ls -lh $APK_PATH | awk '{print $5}')"
-          cp "$APK_PATH" gemini-browser.apk
+          keytool -genkey -v -keystore key.jks -keyalg RSA -keysize 2048 -validity 10000 \
+            -alias mykey -storepass pass123 -keypass pass123 \
+            -dname "CN=Via, O=Custom, C=BR"
           $JAVA_HOME/bin/jarsigner -sigalg SHA256withRSA -digestalg SHA-256 \
-            -keystore release-key.jks -storepass password123 -keypass password123 \
-            gemini-browser.apk mykey
-          echo "APK final: $(ls -lh gemini-browser.apk | awk '{print $5}')"
+            -keystore key.jks -storepass pass123 -keypass pass123 \
+            via-slim.apk mykey
+          ls -lh via-slim.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: gemini-browser
-          path: gemini-browser.apk
+          name: via-slim
+          path: via-slim.apk
           retention-days: 7
