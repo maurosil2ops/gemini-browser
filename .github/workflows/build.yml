@@ -17,8 +17,8 @@ jobs:
 
       - name: Install apktool
         run: |
-          curl -sL https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar -o /usr/local/bin/apktool.jar
-          echo '#!/bin/sh\nexec java -jar /usr/local/bin/apktool.jar "$@"' > /usr/local/bin/apktool
+          curl -sL https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar -o /tmp/apktool.jar
+          printf '#!/bin/sh\njava -jar /tmp/apktool.jar "$@"\n' > /usr/local/bin/apktool
           chmod +x /usr/local/bin/apktool
           apktool --version
 
@@ -28,34 +28,24 @@ jobs:
           ls -lh via-release.apk
 
       - name: Decompile APK
-        run: apktool d via-release.apk -o via-decompiled --no-src
+        run: apktool d via-release.apk -o via-decompiled --no-src -f
 
       - name: Remove bloat
         run: |
           cd via-decompiled
-
-          # Remover assets desnecessários
           rm -rf assets/adblock 2>/dev/null || true
           rm -rf assets/ua 2>/dev/null || true
           rm -f assets/*.js 2>/dev/null || true
           rm -f assets/*.html 2>/dev/null || true
-
-          # Remover drawables de alta resolução (manter só mdpi e hdpi)
           rm -rf res/drawable-xxxhdpi 2>/dev/null || true
           rm -rf res/drawable-xxhdpi 2>/dev/null || true
-
-          # Remover layouts alternativos desnecessários
           rm -rf res/layout-land 2>/dev/null || true
-          rm -rf res/layout-sw600dp* 2>/dev/null || true
-
-          du -sh ../via-decompiled
+          du -sh .
 
       - name: Set Gemini as homepage
         run: |
-          # Substituir homepage padrão pelo Gemini
-          grep -rl "about:home\|about:blank\|https://start" via-decompiled/res/ | head -5
-          find via-decompiled -name "*.xml" -exec grep -l "about:home\|about:blank" {} \; | xargs -I{} sed -i 's|about:home|https://gemini.google.com/app|g; s|about:blank|https://gemini.google.com/app|g' {} 2>/dev/null || true
-          find via-decompiled -name "strings.xml" | xargs grep -l "home\|homepage\|start_url" 2>/dev/null | head -5 || true
+          find via-decompiled -name "*.xml" | xargs grep -l "about:home\|about:blank" 2>/dev/null | \
+            xargs -I{} sed -i 's|about:home|https://gemini.google.com/app|g; s|about:blank|https://gemini.google.com/app|g' {} || true
 
       - name: Recompile APK
         run: |
