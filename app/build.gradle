@@ -1,6 +1,7 @@
 apply plugin: 'com.android.application'
 
 android {
+    namespace "com.gemini.browser"
     compileSdkVersion 34
     defaultConfig {
         applicationId "com.gemini.browser"
