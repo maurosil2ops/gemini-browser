@@ -1,0 +1,44 @@
+name: Build Gemini Browser APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Build Release APK
+        run: ./gradlew assembleRelease
+
+      - name: Sign APK
+        run: |
+          keytool -genkey -v -keystore release-key.jks -keyalg RSA -keysize 2048 -validity 10000 \
+            -alias mykey -storepass password123 -keypass password123 \
+            -dname "CN=Gemini, OU=Browser, O=Custom, L=BR, S=BR, C=BR"
+          $JAVA_HOME/bin/jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
+            -keystore release-key.jks -storepass password123 -keypass password123 \
+            app/build/outputs/apk/release/app-release-unsigned.apk mykey
+          mv app/build/outputs/apk/release/app-release-unsigned.apk gemini-browser.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: gemini-browser
+          path: gemini-browser.apk
+          retention-days: 7
