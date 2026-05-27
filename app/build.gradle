@@ -2,19 +2,24 @@ apply plugin: 'com.android.application'
 
 android {
     namespace "com.gemini.browser"
-    compileSdkVersion 34
+    compileSdk 34
+    buildToolsVersion "34.0.0"
+
     defaultConfig {
         applicationId "com.gemini.browser"
-        minSdkVersion 21
-        targetSdkVersion 34
+        minSdk 21
+        targetSdk 34
         versionCode 1
         versionName "1.0"
     }
+
     buildTypes {
         release {
             minifyEnabled false
+            signingConfig null
         }
     }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
