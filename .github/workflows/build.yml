@@ -18,31 +18,31 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
+      - name: Install Gradle
+        run: |
+          curl -sL https://services.gradle.org/distributions/gradle-8.4-bin.zip -o gradle.zip
+          unzip -q gradle.zip -d /opt/
+          export PATH="/opt/gradle-8.4/bin:$PATH"
+          echo "/opt/gradle-8.4/bin" >> $GITHUB_PATH
+          gradle --version
 
       - name: Build Release APK
-        run: ./gradlew assembleRelease
-
-      - name: List APK output
-        run: find app/build/outputs/apk -name "*.apk" -ls
+        run: |
+          gradle assembleRelease
+          find app/build/outputs/apk -name "*.apk" -ls
 
       - name: Sign APK
         run: |
           keytool -genkey -v -keystore release-key.jks -keyalg RSA -keysize 2048 -validity 10000 \
             -alias mykey -storepass password123 -keypass password123 \
             -dname "CN=Gemini, OU=Browser, O=Custom, L=BR, S=BR, C=BR"
-          
           APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
-          echo "APK encontrado: $APK_PATH"
-          
+          echo "APK: $APK_PATH | Tamanho: $(ls -lh $APK_PATH | awk '{print $5}')"
           cp "$APK_PATH" gemini-browser.apk
-          
-          $JAVA_HOME/bin/jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
+          $JAVA_HOME/bin/jarsigner -sigalg SHA256withRSA -digestalg SHA-256 \
             -keystore release-key.jks -storepass password123 -keypass password123 \
             gemini-browser.apk mykey
-          
-          ls -lh gemini-browser.apk
+          echo "APK final: $(ls -lh gemini-browser.apk | awk '{print $5}')"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
