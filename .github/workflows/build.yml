@@ -2,8 +2,6 @@ name: Build Gemini Browser APK
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ main ]
 
 jobs:
   build:
@@ -26,15 +24,25 @@ jobs:
       - name: Build Release APK
         run: ./gradlew assembleRelease
 
+      - name: List APK output
+        run: find app/build/outputs/apk -name "*.apk" -ls
+
       - name: Sign APK
         run: |
           keytool -genkey -v -keystore release-key.jks -keyalg RSA -keysize 2048 -validity 10000 \
             -alias mykey -storepass password123 -keypass password123 \
             -dname "CN=Gemini, OU=Browser, O=Custom, L=BR, S=BR, C=BR"
+          
+          APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
+          echo "APK encontrado: $APK_PATH"
+          
+          cp "$APK_PATH" gemini-browser.apk
+          
           $JAVA_HOME/bin/jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
             -keystore release-key.jks -storepass password123 -keypass password123 \
-            app/build/outputs/apk/release/app-release-unsigned.apk mykey
-          mv app/build/outputs/apk/release/app-release-unsigned.apk gemini-browser.apk
+            gemini-browser.apk mykey
+          
+          ls -lh gemini-browser.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
